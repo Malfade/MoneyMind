@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Настройки{% endblock %}
+
+{% block content %}
+<div class="settings-wrapper">
+    <div class="settings-header">
+        <h1><i class="fas fa-cog"></i> Настройки</h1>
+        <p class="subtitle">Управление параметрами приложения</p>
+    </div>
+    
+    <div class="settings-grid">
+        <!-- Блок основных настроек -->
+        <div class="settings-card">
+            <div class="card-header">
+                <i class="fas fa-wallet"></i>
+                <h2>Основные настройки</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <div class="form-group">
+                        <label for="currency"><i class="fas fa-coins"></i> Валюта</label>
+                        <select id="currency" name="currency" class="form-select" required>
+                            <option value="RUB" {% if user_settings.currency == 'RUB' %}selected{% endif %}>Рубли (RUB)</option>
+                            <option value="USD" {% if user_settings.currency == 'USD' %}selected{% endif %}>Доллары (USD)</option>
+                            <option value="EUR" {% if user_settings.currency == 'EUR' %}selected{% endif %}>Евро (EUR)</option>
+                            <option value="KZT" {% if user_settings.currency == 'KZT' %}selected{% endif %}>Тенге (KZT)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="theme"><i class="fas fa-palette"></i> Тема оформления</label>
+                        <select id="theme" name="theme" class="form-select">
+                            <option value="light" {% if user_settings.theme == 'light' %}selected{% endif %}>Светлая</option>
+                            <option value="dark" {% if user_settings.theme == 'dark' %}selected{% endif %}>Темная</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-bell"></i> Уведомления</label>
+                        <div class="switch-container">
+                            <label class="switch">
+                                <input type="checkbox" name="notifications" {% if user_settings.notifications %}checked{% endif %}>
+                                <span class="slider round"></span>
+                            </label>
+                            <span>Email-уведомления</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Сохранить
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Блок управления категориями -->
+        <div class="settings-card">
+            <div class="card-header">
+                <i class="fas fa-tags"></i>
+                <h2>Управление категориями</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <div class="form-group">
+                        <label>Тип категории</label>
+                        <select name="category_type" class="form-select" required>
+                            <option value="expense">Расходы</option>
+                            <option value="income">Доходы</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Название категории</label>
+                        <input type="text" name="category_name" class="form-control" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Добавить категорию
+                    </button>
+                </form>
+                
+                <div class="categories-list">
+                    <h3>Текущие категории:</h3>
+                    <div class="category-section">
+                        <h4>Расходы</h4>
+                        <ul>
+                            {% for category in categories.expense %}
+                            <li>
+                                {{ category }}
+                                <form method="POST" action="/api/category/expense/{{ category }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input type="hidden" name="_method" value="DELETE">
+                                    <button type="submit" class="btn-icon danger">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    
+                    <div class="category-section">
+                        <h4>Доходы</h4>
+                        <ul>
+                            {% for category in categories.income %}
+                            <li>
+                                {{ category }}
+                                <form method="POST" action="/api/category/income/{{ category }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input type="hidden" name="_method" value="DELETE">
+                                    <button type="submit" class="btn-icon danger">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения -->
+<div id="confirmModal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle"></h3>
+        <p id="modalMessage"></p>
+        <div class="modal-actions">
+            <button id="confirmAction" class="btn btn-danger">Подтвердить</button>
+            <button id="cancelAction" class="btn btn-secondary">Отмена</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Подтверждение удаления категории
+    document.querySelectorAll('.categories-list form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const categoryName = this.action.split('/').pop();
+            
+            document.getElementById('modalTitle').textContent = 'Удаление категории';
+            document.getElementById('modalMessage').textContent = 
+                `Вы уверены, что хотите удалить категорию "${categoryName}"?`;
+            
+            const modal = document.getElementById('confirmModal');
+            modal.style.display = 'block';
+            
+            document.getElementById('confirmAction').onclick = () => {
+                this.submit();
+                modal.style.display = 'none';
+            };
+            
+            document.getElementById('cancelAction').onclick = () => {
+                modal.style.display = 'none';
+            };
+        });
+    });
+    
+    // Закрытие модального окна при клике вне его
+    window.addEventListener('click', function(event) {
+        if (event.target === document.getElementById('confirmModal')) {
+            event.target.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+.settings-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.settings-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.card-header i {
+    margin-right: 10px;
+    color: var(--primary-color);
+}
+
+.categories-list {
+    margin-top: 30px;
+}
+
+.category-section {
+    margin-bottom: 20px;
+}
+
+.category-section h4 {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+}
+
+.categories-list ul {
+    list-style: none;
+    padding: 0;
+}
+
+.categories-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border-light);
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.btn-icon.danger {
+    color: var(--danger-color);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background: var(--card-bg);
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 500px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

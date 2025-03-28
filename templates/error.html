@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ошибка - MoneyMind</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-wallet"></i>
+                <span>MoneyMind</span>
+            </div>
+            
+            <nav class="nav">
+                <div class="nav-item">
+                    <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.path == '/' %}active{% endif %}">
+                        <i class="fas fa-home"></i>
+                        <span>Главная</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('operations') }}" class="nav-link {% if request.path == '/operations' %}active{% endif %}">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Операции</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('analytics') }}" class="nav-link {% if request.path == '/analytics' %}active{% endif %}">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Аналитика</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('budgets') }}" class="nav-link {% if request.path == '/budgets' %}active{% endif %}">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Бюджеты</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('recurring') }}" class="nav-link {% if request.path == '/recurring' %}active{% endif %}">
+                        <i class="fas fa-redo"></i>
+                        <span>Регулярные</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('settings') }}" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
+                        <i class="fas fa-cog"></i>
+                        <span>Настройки</span>
+                    </a>
+                </div>
+            </nav>
+            
+            <div class="user-panel">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-info">
+                    <div class="user-name">Пользователь</div>
+                    <div class="user-email">user@example.com</div>
+                </div>
+            </div>
+        </aside>
+        <main class="main">
+            <div class="error-container">
+                <div class="error-card">
+                    <i class="fas fa-exclamation-circle error-icon"></i>
+                    <h1>Произошла ошибка</h1>
+                    <p class="error-message">{{ message }}</p>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                        <i class="fas fa-home"></i> На главную
+                    </a>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

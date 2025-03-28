@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>Финансовый обзор</h1>
+    <div class="actions">
+        <button class="btn btn-primary" id="add-income">
+            <i class="fas fa-plus-circle"></i> Доход
+        </button>
+        <button class="btn btn-danger" id="add-expense">
+            <i class="fas fa-minus-circle"></i> Расход
+        </button>
+    </div>
+</div>
+
+<div class="balance-card">
+    <h2>Текущий баланс</h2>
+    <div class="amount">{{ "%.2f"|format(balance) }} {{ currency }}</div>
+    <div class="balance-details">
+        <div class="detail income">
+            <span>Доходы</span>
+            <span>{{ "%.2f"|format(monthly_data.income) }} {{ currency }}</span>
+        </div>
+        <div class="detail expense">
+            <span>Расходы</span>
+            <span>{{ "%.2f"|format(monthly_data.expense) }} {{ currency }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Доходы и расходы</h3>
+            </div>
+            <div class="card-body">
+                <canvas id="monthlyChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Последние операции</h3>
+            </div>
+            <div class="card-body">
+                <ul class="operations-list">
+                    {% for op in last_operations %}
+                    <li class="operation {{ 'income' if op.type == 'income' else 'expense' }}">
+                        <div class="operation-icon">
+                            <i class="fas fa-{{ 'arrow-up' if op.type == 'income' else 'arrow-down' }}"></i>
+                        </div>
+                        <div class="operation-details">
+                            <span class="category">{{ op.category }}</span>
+                            <span class="description">{{ op.description or 'Без описания' }}</span>
+                        </div>
+                        <div class="operation-amount">
+                            {{ "%.2f"|format(op.amount) }} {{ currency }}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для добавления операции -->
+<div class="modal" id="operationModal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2 id="modalTitle">Добавить операцию</h2>
+        <form id="operationForm">
+            <input type="hidden" id="operationType" name="type" value="">
+            <div class="form-group">
+                <label for="amount">Сумма</label>
+                <input type="number" id="amount" name="amount" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label for="category">Категория</label>
+                <select id="category" name="category" required>
+                    <!-- Категории будут заполнены JavaScript -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="date">Дата</label>
+                <input type="date" id="date" name="date" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Описание (необязательно)</label>
+                <input type="text" id="description" name="description">
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить</button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Установка текущей даты
+    const dateInput = document.getElementById('date');
+    if (dateInput) {
+        dateInput.valueAsDate = new Date();
+    }
+    
+    // Инициализация графиков
+    const monthlyCtx = document.getElementById('monthlyChart');
+    if (monthlyCtx) {
+        try {
+            const monthlyChart = new Chart(monthlyCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Доходы', 'Расходы'],
+                    datasets: [{
+                        label: 'Текущий месяц',
+                        data: [
+                            {{ monthly_data.income | default(0) }}, 
+                            {{ monthly_data.expense | default(0) }}
+                        ],
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.5)',
+                            'rgba(255, 99, 132, 0.5)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 99, 132, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Ошибка инициализации графика:', e);
+        }
+    }
+    
+    // Обработчики для модального окна
+    const addIncomeBtn = document.getElementById('add-income');
+    const addExpenseBtn = document.getElementById('add-expense');
+    
+    if (addIncomeBtn) {
+        addIncomeBtn.addEventListener('click', showOperationModal.bind(null, 'income'));
+    }
+    
+    if (addExpenseBtn) {
+        addExpenseBtn.addEventListener('click', showOperationModal.bind(null, 'expense'));
+    }
+    
+    function showOperationModal(type) {
+        const modal = document.getElementById('operationModal');
+        if (modal) {
+            document.getElementById('modalTitle').textContent = 
+                type === 'income' ? 'Добавить доход' : 'Добавить расход';
+            document.getElementById('operationType').value = type;
+            fetchCategories(type);
+            modal.style.display = 'block';
+        }
+    }
+    
+    // Закрытие модального окна
+    document.querySelector('.close')?.addEventListener('click', function() {
+        document.getElementById('operationModal').style.display = 'none';
+    });
+    
+    window.addEventListener('click', function(event) {
+        if (event.target === document.getElementById('operationModal')) {
+            document.getElementById('operationModal').style.display = 'none';
+        }
+    });
+    
+    // Функция для загрузки категорий
+    function fetchCategories(type) {
+        fetch('/get_categories?type=' + type)
+            .then(response => response.json())
+            .then(categories => {
+                const categorySelect = document.getElementById('category');
+                if (categorySelect) {
+                    categorySelect.innerHTML = '';
+                    categories.forEach(cat => {
+                        const option = document.createElement('option');
+                        option.value = cat;
+                        option.textContent = cat;
+                        categorySelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => console.error('Ошибка загрузки категорий:', error));
+    }
+    
+    // Обработка формы
+    const operationForm = document.getElementById('operationForm');
+    if (operationForm) {
+        operationForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('/add_operation', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при добавлении операции');
+            });
+        });
+    }
+});
+    
+    // Обработчики для модального окна
+    document.getElementById('add-income').addEventListener('click', function() {
+        document.getElementById('modalTitle').textContent = 'Добавить доход';
+        document.getElementById('operationType').value = 'income';
+        // Заполнить категории доходов (AJAX запрос)
+        fetchCategories('income');
+        document.getElementById('operationModal').style.display = 'block';
+    });
+    
+    document.getElementById('add-expense').addEventListener('click', function() {
+        document.getElementById('modalTitle').textContent = 'Добавить расход';
+        document.getElementById('operationType').value = 'expense';
+        // Заполнить категории расходов (AJAX запрос)
+        fetchCategories('expense');
+        document.getElementById('operationModal').style.display = 'block';
+    });
+    
+    document.querySelector('.close').addEventListener('click', function() {
+        document.getElementById('operationModal').style.display = 'none';
+    });
+    
+    window.addEventListener('click', function(event) {
+        if (event.target == document.getElementById('operationModal')) {
+            document.getElementById('operationModal').style.display = 'none';
+        }
+    });
+    
+    // Функция для загрузки категорий
+    function fetchCategories(type) {
+        fetch('/settings')
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const categories = JSON.parse(doc.getElementById('categories-data').textContent);
+                
+                const categorySelect = document.getElementById('category');
+                categorySelect.innerHTML = '';
+                
+                categories[type].forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    categorySelect.appendChild(option);
+                });
+            });
+    }
+    
+    // Обработка формы
+    document.getElementById('operationForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('/add_operation', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload();
+            }
+        });
+    });
+</script>
+{% endblock %}

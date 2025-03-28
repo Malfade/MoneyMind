@@ -1,0 +1,736 @@
+{% extends "base.html" %}
+
+{% block title %}Управление бюджетами{% endblock %}
+
+{% block content %}
+<div class="budgets-page">
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-wallet icon-header"></i> Управление бюджетами</h1>
+            <button class="btn btn-primary btn-add" id="add-budget">
+                <i class="fas fa-plus"></i> Новый бюджет
+            </button>
+        </div>
+        <p class="page-description">Здесь вы можете управлять своими бюджетами по категориям</p>
+    </div>
+
+    <div class="dashboard-cards">
+        <!-- Карточка общего бюджета -->
+        <div class="dashboard-card budget-card">
+            <div class="card-icon">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="card-content">
+                <h3>Общий бюджет</h3>
+                <p class="amount">{{ "%.2f"|format(total_budget) }} {{ currency }}</p>
+            </div>
+        </div>
+        
+        <!-- Карточка потраченных средств -->
+        <div class="dashboard-card spent-card">
+            <div class="card-icon">
+                <i class="fas fa-shopping-basket"></i>
+            </div>
+            <div class="card-content">
+                <h3>Потрачено</h3>
+                <p class="amount">{{ "%.2f"|format(total_spent) }} {{ currency }}</p>
+            </div>
+        </div>
+        
+        <!-- Карточка остатка -->
+        <div class="dashboard-card balance-card {% if total_spent > total_budget %}negative{% else %}positive{% endif %}">
+            <div class="card-icon">
+                <i class="fas fa-piggy-bank"></i>
+            </div>
+            <div class="card-content">
+                <h3>Остаток</h3>
+                <p class="amount">{{ "%.2f"|format(total_budget - total_spent) }} {{ currency }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Список бюджетов -->
+    <div class="budgets-section">
+        <h2 class="section-title"><i class="fas fa-list-ul"></i> Ваши бюджеты</h2>
+        
+        {% if budgets %}
+        <div class="budgets-grid">
+            {% for category, amount in budgets.items() %}
+            <div class="budget-card">
+                <div class="budget-card-header">
+                    <h3 class="category-name">{{ category }}</h3>
+                    <div class="budget-actions">
+                        <button class="btn-icon edit-btn" data-category="{{ category }}" title="Редактировать">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon delete-btn" data-category="{{ category }}" title="Удалить">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                {% set spent = expenses_by_category.get(category, 0) %}
+                {% set percentage = (spent / amount * 100) if amount > 0 else 0 %}
+                {% set remaining = amount - spent %}
+                
+                <div class="progress-container">
+                    <div class="progress-labels">
+                        <span class="spent">{{ "%.2f"|format(spent) }} {{ currency }}</span>
+                        <span class="total">{{ "%.2f"|format(amount) }} {{ currency }}</span>
+                    </div>
+                    <div class="progress-bar" style="width: {{ [percentage, 100]|min }}%">
+                        <span class="progress-percent">{{ "%.0f"|format(percentage) }}%</span>
+                    </div>
+                </div>
+                
+                <div class="budget-status {% if percentage > 100 %}status-danger{% elif percentage > 80 %}status-warning{% else %}status-success{% endif %}">
+                    {% if percentage > 100 %}
+                        <i class="fas fa-exclamation-triangle"></i> Превышен на {{ "%.2f"|format(percentage - 100) }}%
+                    {% else %}
+                        <i class="fas fa-check-circle"></i> Осталось: {{ "%.2f"|format(remaining) }} {{ currency }}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-clipboard-list"></i>
+            </div>
+            <h3>Бюджеты не настроены</h3>
+            <p>Начните с добавления своего первого бюджета</p>
+            <button class="btn btn-primary" id="add-first-budget">
+                <i class="fas fa-plus"></i> Добавить бюджет
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Модальное окно для работы с бюджетами -->
+<div class="modal-overlay" id="budgetModal">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2><i class="fas fa-wallet"></i> <span id="modalTitle">Добавить</span> бюджет</h2>
+            <button class="modal-close">&times;</button>
+        </div>
+        
+        <form id="budgetForm" class="modal-form">
+            <input type="hidden" id="editCategory" name="edit_category" value="">
+            
+            <div class="form-group">
+                <label for="categorySelect">Категория расходов</label>
+                <select id="categorySelect" class="form-select" required>
+                    <option value="">Выберите категорию</option>
+                    {% for category in categories %}
+                        {% if category not in budgets %}
+                        <option value="{{ category }}">{{ category }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="budgetAmount">Сумма бюджета ({{ currency }})</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-ruble-sign"></i>
+                    <input type="number" id="budgetAmount" step="0.01" min="0.01" required>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" id="cancelBtn">Отмена</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">
+                    <span id="saveBtnText">Сохранить</span>
+                    <i class="fas fa-spinner fa-spin" id="saveSpinner"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+:root {
+    --primary: #4361ee;
+    --primary-light: #4895ef;
+    --primary-dark: #3f37c9;
+    --success: #4cc9f0;
+    --danger: #f72585;
+    --warning: #ff9f1c;
+    --text: #2b2d42;
+    --text-light: #8d99ae;
+    --bg: #f8f9fa;
+    --card-bg: #ffffff;
+    --border: #e9ecef;
+}
+
+.budgets-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    color: var(--text);
+}
+
+.page-header {
+    margin-bottom: 30px;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.icon-header {
+    color: var(--primary);
+}
+
+.page-description {
+    margin-top: 5px;
+    color: var(--text-light);
+    font-size: 16px;
+}
+
+.btn-add {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-weight: 500;
+}
+
+.dashboard-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.dashboard-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: transform 0.3s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+}
+
+.card-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(67, 97, 238, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    font-size: 20px;
+}
+
+.spent-card .card-icon {
+    background: rgba(247, 37, 133, 0.1);
+    color: var(--danger);
+}
+
+.balance-card .card-icon {
+    background: rgba(76, 201, 240, 0.1);
+    color: var(--success);
+}
+
+.card-content h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+.amount {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.positive .amount {
+    color: var(--success);
+}
+
+.negative .amount {
+    color: var(--danger);
+}
+
+.budgets-section {
+    margin-top: 30px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    margin-bottom: 20px;
+    color: var(--text);
+}
+
+.budgets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.budget-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.budget-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+
+.budget-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.category-name {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.budget-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-light);
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: rgba(0,0,0,0.05);
+    color: var(--primary);
+}
+
+.progress-container {
+    margin: 15px 0;
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: var(--text-light);
+}
+
+.progress-bar {
+    height: 10px;
+    background: var(--primary);
+    border-radius: 5px;
+    position: relative;
+    transition: width 0.5s ease;
+}
+
+.progress-percent {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    font-weight: bold;
+    color: white;
+}
+
+.budget-status {
+    margin-top: 15px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-success {
+    background: rgba(76, 201, 240, 0.1);
+    color: var(--success);
+}
+
+.status-warning {
+    background: rgba(255, 193, 7, 0.1);
+    color: var(--warning);
+}
+
+.status-danger {
+    background: rgba(247, 37, 133, 0.1);
+    color: var(--danger);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin-top: 20px;
+}
+
+.empty-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(67, 97, 238, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: var(--primary);
+    font-size: 32px;
+}
+
+.empty-state h3 {
+    margin: 0 0 10px;
+    font-size: 20px;
+}
+
+.empty-state p {
+    color: var(--text-light);
+    margin-bottom: 20px;
+}
+
+/* Модальное окно */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(3px);
+}
+
+.modal-container {
+    background: var(--card-bg);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    overflow: hidden;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-overlay.show .modal-container {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-light);
+    transition: color 0.2s;
+}
+
+.modal-close:hover {
+    color: var(--danger);
+}
+
+.modal-form {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.form-select, .form-control {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.form-select:focus, .form-control:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+}
+
+.input-with-icon {
+    position: relative;
+}
+
+.input-with-icon i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+}
+
+.input-with-icon input {
+    padding-left: 40px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 30px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-outline {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.btn-outline:hover {
+    background: rgba(0,0,0,0.02);
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+    border: none;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+#saveSpinner {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .budgets-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-container {
+        max-width: 90%;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('budgetModal');
+    const form = document.getElementById('budgetForm');
+    const editCategory = document.getElementById('editCategory');
+    const categorySelect = document.getElementById('categorySelect');
+    const budgetAmount = document.getElementById('budgetAmount');
+    const saveBtn = document.getElementById('saveBtn');
+    const saveBtnText = document.getElementById('saveBtnText');
+    const saveSpinner = document.getElementById('saveSpinner');
+    
+    // Функции для работы с модальным окном
+    function openModal() {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeModal() {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+    
+    // Открытие модалки для добавления
+    document.getElementById('add-budget')?.addEventListener('click', function() {
+        document.getElementById('modalTitle').textContent = 'Добавить';
+        editCategory.value = '';
+        form.reset();
+        openModal();
+    });
+    
+    document.getElementById('add-first-budget')?.addEventListener('click', function() {
+        document.getElementById('modalTitle').textContent = 'Добавить';
+        editCategory.value = '';
+        form.reset();
+        openModal();
+    });
+    
+    // Открытие модалки для редактирования
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const category = this.getAttribute('data-category');
+            const amount = parseFloat(
+                this.closest('.budget-card')
+                    .querySelector('.progress-labels .total')
+                    .textContent
+                    .split(currency)[0]
+                    .trim()
+            );
+            
+            document.getElementById('modalTitle').textContent = 'Редактировать';
+            editCategory.value = category;
+            categorySelect.value = category;
+            budgetAmount.value = amount;
+            openModal();
+        });
+    });
+    
+    // Удаление бюджета
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const category = this.getAttribute('data-category');
+            
+            if (confirm(`Вы уверены, что хотите удалить бюджет для "${category}"?`)) {
+                fetch(`/api/budget/${encodeURIComponent(category)}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Ошибка удаления');
+                    window.location.reload();
+                })
+                .catch(error => {
+                    alert('Ошибка: ' + error.message);
+                });
+            }
+        });
+    });
+    
+    // Закрытие модалки
+    document.querySelector('.modal-close').addEventListener('click', closeModal);
+    document.getElementById('cancelBtn').addEventListener('click', closeModal);
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeModal();
+    });
+    
+    // Обработка формы
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const category = categorySelect.value;
+        const amount = parseFloat(budgetAmount.value);
+        const isEdit = !!editCategory.value;
+        
+        if (!category || !amount || amount <= 0) {
+            alert('Пожалуйста, заполните все поля корректно');
+            return;
+        }
+        
+        // Показать индикатор загрузки
+        saveBtn.disabled = true;
+        saveBtnText.textContent = isEdit ? 'Сохраняем...' : 'Добавляем...';
+        saveSpinner.style.display = 'inline-block';
+        
+        const url = isEdit 
+            ? `/api/budget/${encodeURIComponent(editCategory.value)}` 
+            : '/api/budget';
+            
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                category: category,
+                amount: amount
+            })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Ошибка сохранения');
+            window.location.reload();
+        })
+        .catch(error => {
+            alert('Ошибка: ' + error.message);
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtnText.textContent = 'Сохранить';
+            saveSpinner.style.display = 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

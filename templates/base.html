@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoneyMind - {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3f37c9;
+            --primary-light: #4895ef;
+            --danger: #f72585;
+            --success: #4cc9f0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --radius: 8px;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f5f7fa;
+            color: var(--dark);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .app {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Сайдбар */
+        .sidebar {
+            width: 250px;
+            background: white;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            color: var(--primary);
+            font-size: 1.5rem;
+            font-weight: 700;
+            border-bottom: 1px solid #eee;
+        }
+
+        .logo i {
+            margin-right: 10px;
+            font-size: 1.8rem;
+        }
+
+        .nav {
+            flex: 1;
+            padding: 15px 0;
+        }
+
+        .nav-item {
+            margin: 5px 10px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            color: var(--gray);
+            text-decoration: none;
+            border-radius: var(--radius);
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+        }
+
+        .nav-link.active {
+            background: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            border-left: 3px solid var(--primary);
+        }
+
+        .nav-link i {
+            width: 24px;
+            text-align: center;
+            margin-right: 10px;
+        }
+
+        .user-panel {
+            padding: 15px;
+            border-top: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+        }
+
+        .user-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .user-email {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+
+        /* Основное содержимое */
+        .main {
+            flex: 1;
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            color: var(--dark);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border-radius: var(--radius);
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .btn i {
+            margin-right: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 500px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--gray);
+        }
+
+        .modal-close:hover {
+            color: var(--dark);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: var(--radius);
+            font-family: inherit;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Сообщения об ошибках */
+        .error-message {
+            color: var(--danger);
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 70px;
+            }
+            .logo span,
+            .nav-link span,
+            .user-name,
+            .user-email {
+                display: none;
+            }
+            .logo {
+                justify-content: center;
+            }
+            .nav-link {
+                justify-content: center;
+            }
+            .nav-link i {
+                margin-right: 0;
+            }
+            .user-panel {
+                justify-content: center;
+            }
+            .user-avatar {
+                margin-right: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main {
+                padding: 15px;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .quick-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Сайдбар -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-wallet"></i>
+                <span>MoneyMind</span>
+            </div>
+            
+            <nav class="nav">
+                <div class="nav-item">
+                    <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.path == '/' %}active{% endif %}">
+                        <i class="fas fa-home"></i>
+                        <span>Главная</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('operations') }}" class="nav-link {% if request.path == '/operations' %}active{% endif %}">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Операции</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('analytics') }}" class="nav-link {% if request.path == '/analytics' %}active{% endif %}">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Аналитика</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('budgets') }}" class="nav-link {% if request.path == '/budgets' %}active{% endif %}">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Бюджеты</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('recurring') }}" class="nav-link {% if request.path == '/recurring' %}active{% endif %}">
+                        <i class="fas fa-redo"></i>
+                        <span>Регулярные</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{{ url_for('settings') }}" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
+                        <i class="fas fa-cog"></i>
+                        <span>Настройки</span>
+                    </a>
+                </div>
+            </nav>
+            
+            <div class="user-panel">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-info">
+                    <div class="user-name">Пользователь</div>
+                    <div class="user-email">user@example.com</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Основное содержимое -->
+        <main class="main">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Модальное окно для операций -->
+    <div class="modal" id="operationModal">
+        <div class="modal-content">
+            <button class="modal-close">&times;</button>
+            <h2 id="modalTitle">Добавить операцию</h2>
+            <form id="operationForm">
+                <input type="hidden" id="operationType" name="type">
+                
+                <div class="form-group">
+                    <label for="operationAmount">Сумма</label>
+                    <input type="number" id="operationAmount" name="amount" step="0.01" min="0.01" required>
+                    <div class="error-message" id="amountError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="operationDate">Дата</label>
+                    <input type="date" id="operationDate" name="date" required>
+                    <div class="error-message" id="dateError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="operationCategory">Категория</label>
+                    <select id="operationCategory" name="category" required>
+                        <option value="">Выберите категорию</option>
+                    </select>
+                    <div class="error-message" id="categoryError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="operationDescription">Описание (необязательно)</label>
+                    <input type="text" id="operationDescription" name="description" placeholder="Введите описание">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-danger" id="cancelOperation">Отмена</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Скрипты -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('operationModal');
+    const form = document.getElementById('operationForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Функция закрытия модального окна
+    const closeModal = () => {
+        modal.style.display = 'none';
+        form.reset();
+        // Скрываем все сообщения об ошибках
+        document.querySelectorAll('.error-message').forEach(el => {
+            el.style.display = 'none';
+        });
+    };
+    
+    // Установка текущей даты по умолчанию
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('operationDate').value = today;
+    
+    // Обработчики закрытия модального окна
+    document.querySelector('.modal-close').addEventListener('click', closeModal);
+    document.getElementById('cancelOperation').addEventListener('click', closeModal);
+    window.addEventListener('click', (e) => e.target === modal && closeModal());
+    
+    // Открытие модального окна для добавления операции
+    document.querySelectorAll('[data-action="add-operation"]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const type = this.getAttribute('data-type');
+            document.getElementById('operationType').value = type;
+            document.getElementById('modalTitle').textContent = 
+                type === 'income' ? 'Добавить доход' : 'Добавить расход';
+            
+            // Загрузка категорий
+            fetch(`/api/categories?type=${type}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Ошибка загрузки категорий');
+                    return res.json();
+                })
+                .then(categories => {
+                    const select = document.getElementById('operationCategory');
+                    select.innerHTML = '<option value="">Выберите категорию</option>';
+                    categories.forEach(cat => {
+                        const option = new Option(cat, cat);
+                        select.add(option);
+                    });
+                    modal.style.display = 'flex';
+                })
+                .catch(err => {
+                    console.error('Ошибка загрузки категорий:', err);
+                    alert('Не удалось загрузить категории. Попробуйте позже.');
+                });
+        });
+    });
+    
+    // Отправка формы
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Добавление...';
+        
+        // Скрываем предыдущие ошибки
+        document.querySelectorAll('.error-message').forEach(el => {
+            el.style.display = 'none';
+        });
+        
+        // Проверка данных формы
+        const formData = new FormData(form);
+        let isValid = true;
+        
+        if (!formData.get('amount') || parseFloat(formData.get('amount')) <= 0) {
+            document.getElementById('amountError').textContent = 'Введите корректную сумму';
+            document.getElementById('amountError').style.display = 'block';
+            isValid = false;
+        }
+        
+        if (!formData.get('date')) {
+            document.getElementById('dateError').textContent = 'Укажите дату';
+            document.getElementById('dateError').style.display = 'block';
+            isValid = false;
+        }
+        
+        if (!formData.get('category')) {
+            document.getElementById('categoryError').textContent = 'Выберите категорию';
+            document.getElementById('categoryError').style.display = 'block';
+            isValid = false;
+        }
+        
+        if (!isValid) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Добавить';
+            return;
+        }
+        
+        // Отправка данных на сервер
+        fetch('/api/operation', {
+            method: 'POST',
+            body: formData
+        })
+        .then(async res => {
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.message || 'Ошибка при добавлении операции');
+            }
+            return data;
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                closeModal();
+                window.location.reload();
+            } else {
+                throw new Error(data.message || 'Неизвестная ошибка');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            alert(err.message || 'Не удалось добавить операцию');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Добавить';
+        });
+    });
+});
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

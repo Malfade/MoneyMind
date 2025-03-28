@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Регулярные платежи{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>Регулярные платежи</h1>
+    <button class="btn btn-primary" id="add-recurring">
+        <i class="fas fa-plus-circle"></i> Добавить платеж
+    </button>
+</div>
+
+<div class="recurring-list">
+    {% for payment in recurring %}
+    <div class="recurring-card {{ 'inactive' if not payment.active }}">
+        <div class="recurring-header">
+            <h3>{{ payment.description or payment.category }}</h3>
+            <div class="recurring-actions">
+                <div class="toggle-recurring {{ 'active' if payment.active }}" data-id="{{ payment.id }}">
+                    <div class="toggle-switch"></div>
+                </div>
+                <button class="btn-icon edit-recurring" data-id="{{ payment.id }}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn-icon delete-recurring" data-id="{{ payment.id }}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="recurring-details">
+            <div class="detail">
+                <span>Тип:</span>
+                <span>{{ 'Доход' if payment.type == 'income' else 'Расход' }}</span>
+            </div>
+            <div class="detail">
+                <span>Сумма:</span>
+                <span>{{ "%.2f"|format(payment.amount) }} {{ currency }}</span>
+            </div>
+            <div class="detail">
+                <span>Периодичность:</span>
+                <span>
+                    {% if payment.frequency == 'daily' %}Ежедневно
+                    {% elif payment.frequency == 'weekly' %}Еженедельно
+                    {% elif payment.frequency == 'monthly' %}Ежемесячно
+                    {% else %}Кастомный
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail">
+                <span>Следующий платеж:</span>
+                <span>{{ payment.next_date }}</span>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-redo"></i>
+        <p>У вас пока нет регулярных платежей</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Модальное окно для добавления/редактирования регулярного платежа -->
+<div class="modal" id="recurringModal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2 id="recurringModalTitle">Добавить регулярный платеж</h2>
+        <form id="recurringForm">
+            <input type="hidden" id="recurringId" name="id" value="">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="recurringType">Тип:</label>
+                    <select id="recurringType" name="type" required>
+                        <option value="expense">Расход</option>
+                        <option value="income">Доход</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="recurringAmount">Сумма ({{ currency }}):</label>
+                    <input type="number" id="recurringAmount" name="amount" step="0.01" min="0.01" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="recurringCategory">Категория:</label>
+                    <select id="recurringCategory" name="category" required>
+                        <option value="">Выберите категорию</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="recurringFrequency">Периодичность:</label>
+                    <select id="recurringFrequency" name="frequency" required>
+                        <option value="daily">Ежедневно</option>
+                        <option value="weekly">Еженедельно</option>
+                        <option value="monthly">Ежемесячно</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="recurringDescription">Описание (необязательно):</label>
+                <input type="text" id="recurringDescription" name="description">
+            </div>
+            
+            <div class="form-group">
+                <label for="recurringNextDate">Следующая дата:</label>
+                <input type="date" id="recurringNextDate" name="next_date" required>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary" id="cancelRecurring">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const recurringModal = document.getElementById('recurringModal');
+    
+    // Загрузка категорий при изменении типа
+    document.getElementById('recurringType').addEventListener('change', function() {
+        updateRecurringCategories(this.value);
+    });
+    
+    // Показать модальное окно для добавления
+    document.getElementById('add-recurring').addEventListener('click', function() {
+        document.getElementById('recurringModalTitle').textContent = 'Добавить регулярный платеж';
+        document.getElementById('recurringForm').reset();
+        document.getElementById('recurringId').value = '';
+        document.getElementById('recurringNextDate').valueAsDate = new Date();
+        updateRecurringCategories('expense');
+        recurringModal.style.display = 'block';
+    });
+    
+    // Редактирование платежа
+    document.querySelectorAll('.edit-recurring').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const paymentId = this.getAttribute('data-id');
+            fetch(`/api/recurring/${paymentId}`)
+                .then(response => response.json())
+                .then(payment => {
+                    document.getElementById('recurringModalTitle').textContent = 'Редактировать регулярный платеж';
+                    document.getElementById('recurringId').value = payment.id;
+                    document.getElementById('recurringType').value = payment.type;
+                    document.getElementById('recurringAmount').value = payment.amount;
+                    document.getElementById('recurringDescription').value = payment.description || '';
+                    document.getElementById('recurringFrequency').value = payment.frequency;
+                    document.getElementById('recurringNextDate').value = payment.next_date;
+                    
+                    updateRecurringCategories(payment.type, payment.category);
+                    recurringModal.style.display = 'block';
+                });
+        });
+    });
+    
+    // Удаление платежа
+    document.querySelectorAll('.delete-recurring').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const paymentId = this.getAttribute('data-id');
+            if (confirm('Вы уверены, что хотите удалить этот регулярный платеж?')) {
+                fetch(`/api/recurring/${paymentId}`, { method: 'DELETE' })
+                    .then(response => {
+                        if (response.ok) {
+                            window.location.reload();
+                        }
+                    });
+            }
+        });
+    });
+    
+    // Переключение активности
+    document.querySelectorAll('.toggle-recurring').forEach(toggle => {
+        toggle.addEventListener('click', function() {
+            const paymentId = this.getAttribute('data-id');
+            const isActive = this.classList.contains('active');
+            
+            fetch(`/api/recurring/${paymentId}/toggle`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    active: !isActive
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    this.classList.toggle('active');
+                    this.closest('.recurring-card').classList.toggle('inactive');
+                }
+            });
+        });
+    });
+    
+    // Закрытие модального окна
+    document.querySelector('.close').addEventListener('click', closeRecurringModal);
+    document.getElementById('cancelRecurring').addEventListener('click', closeRecurringModal);
+    window.addEventListener('click', function(event) {
+        if (event.target === recurringModal) {
+            closeRecurringModal();
+        }
+    });
+    
+    // Обработка формы
+    document.getElementById('recurringForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            type: document.getElementById('recurringType').value,
+            amount: parseFloat(document.getElementById('recurringAmount').value),
+            category: document.getElementById('recurringCategory').value,
+            description: document.getElementById('recurringDescription').value,
+            frequency: document.getElementById('recurringFrequency').value,
+            next_date: document.getElementById('recurringNextDate').value,
+            active: true
+        };
+        
+        const paymentId = document.getElementById('recurringId').value;
+        const method = paymentId ? 'PUT' : 'POST';
+        const url = paymentId ? `/api/recurring/${paymentId}` : '/api/recurring';
+        
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.reload();
+            }
+        });
+    });
+    
+    function updateRecurringCategories(type, selectedCategory = null) {
+        fetch(`/api/categories?type=${type}`)
+            .then(response => response.json())
+            .then(categories => {
+                const categorySelect = document.getElementById('recurringCategory');
+                categorySelect.innerHTML = '<option value="">Выберите категорию</option>';
+                
+                categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    if (selectedCategory && cat === selectedCategory) {
+                        option.selected = true;
+                    }
+                    categorySelect.appendChild(option);
+                });
+            });
+    }
+    
+    function closeRecurringModal() {
+        recurringModal.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

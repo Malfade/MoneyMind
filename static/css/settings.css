@@ -1,0 +1,87 @@
+/* Настройки */
+.settings-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.settings-section {
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 20px;
+}
+
+.settings-section h2 {
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 15px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--gray-color);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.categories-list {
+    list-style: none;
+    margin-bottom: 20px;
+}
+
+.categories-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.categories-list li:last-child {
+    border-bottom: none;
+}
+
+.add-category-form {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.add-category-form .form-group {
+    flex-grow: 1;
+}
+
+.export-options {
+    display: flex;
+    gap: 10px;
+}
+
+@media (max-width: 600px) {
+    .add-category-form {
+        flex-direction: column;
+    }
+}
